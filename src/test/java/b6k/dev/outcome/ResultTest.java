@@ -1,5 +1,6 @@
 package b6k.dev.outcome;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -8,62 +9,92 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class ResultTest {
 
-    @Test
-    void isError() {
-        var result = Result.err("Something is wrong");
-
-        assertTrue(result.isErr());
-        assertFalse(result.isOk());
-    }
-
-    @Test
-    void isOk() {
-        var result = Result.ok("All good");
-
-        assertTrue(result.isOk());
-        assertFalse(result.isErr());
-    }
-
     @Nested
-    class Unwrap {
-        @Nested
-        class Ok {
-            @Test
-            void returnValue() {
-                var value = 45;
-                var result = Result.ok(value);
+    class Ok {
+        private static final Integer OK_VALUE = 45;
+        private Result<Integer, String> okResult;
 
-                assertEquals(value, result.unwrap());
-            }
+        @BeforeEach
+        void setup() {
+            okResult = Result.ok(OK_VALUE);
+        }
 
-            @Test
-            void returnValueWithMessage() {
-                var value = 45;
-                var result = Result.ok(value);
+        @Test
+        void createOkWithValue() {
+            var result = Result.ok(12);
 
-                assertEquals(value, result.unwrap("blah, blah"));
-            }
+            assertTrue(result.isOk());
+            assertFalse(result.isErr());
         }
 
         @Nested
-        class Error {
+        class Unwrap {
+
+            @Test
+            void returnValue() {
+                assertEquals(OK_VALUE, okResult.unwrap());
+            }
+
+            @Test
+            void returnValueIgnoreMessage() {
+                assertEquals(OK_VALUE, okResult.unwrap("blah, blah"));
+            }
+
+            @Nested
+            class UnwrapOr {
+                @Test
+                void returnValueForOk() {
+                    assertEquals(OK_VALUE, okResult.unwrapOr(23));
+                }
+            }
+        }
+
+    }
+
+    @Nested
+    class Err {
+        private static final String ERR_VALUE = "oops";
+
+        private Result<Integer, String> errResult;
+
+        @BeforeEach
+        void setup() {
+            errResult = Result.err(ERR_VALUE);
+        }
+
+        @Test
+        void createErrWithValue() {
+            var result = Result.err("oops");
+
+
+            assertTrue(result.isErr());
+            assertFalse(result.isOk());
+        }
+
+        @Nested
+        class Unwrap {
             @Test
             void throwWithDefaultMessage() {
-                assertThatThrownBy(() -> Result.err("oops").unwrap())
-                        .isInstanceOf(IllegalStateException.class)
-                        .hasMessage("Tried to unwrap an error");
+                assertThatThrownBy(() -> errResult.unwrap()).isInstanceOf(IllegalStateException.class).hasMessage("Tried to unwrap an error");
             }
 
             @Test
             void throwWithMessage() {
                 var message = "blah, blah";
 
-                assertThatThrownBy(() -> Result.err("oops").unwrap(message))
-                        .isInstanceOf(IllegalStateException.class)
-                        .hasMessage(message);
+                assertThatThrownBy(() -> errResult.unwrap(message)).isInstanceOf(IllegalStateException.class).hasMessage(message);
+            }
+
+            @Nested
+            class UnwrapOr {
+
+
+                @Test
+                void returnDefaultForErr() {
+                    var fallback = 23;
+                    assertEquals(fallback, errResult.unwrapOr(fallback));
+                }
             }
         }
-
-
     }
 }

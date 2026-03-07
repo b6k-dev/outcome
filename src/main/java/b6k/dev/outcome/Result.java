@@ -11,6 +11,11 @@ public sealed interface Result<T, E> {
         public T unwrap(String message) {
             return value;
         }
+
+        @Override
+        public T unwrapOr(T defaultValue) {
+            return value;
+        }
     }
     record Err<T, E>(E error) implements Result<T, E> {
         @Override
@@ -21,6 +26,11 @@ public sealed interface Result<T, E> {
         @Override
         public T unwrap(String message) {
             throw new IllegalStateException(message);
+        }
+
+        @Override
+        public T unwrapOr(T defaultValue) {
+            return defaultValue;
         }
     }
 
@@ -34,6 +44,7 @@ public sealed interface Result<T, E> {
 
     T unwrap();
     T unwrap(String message);
+    T unwrapOr(T defaultValue);
 
     static <T, E> Result<T, E> ok(T value) {
         return new Result.Ok<>(value);
