@@ -1,5 +1,7 @@
 package b6k.dev.outcome;
 
+import java.util.function.Supplier;
+
 public sealed interface Result<T, E> {
     record Ok<T, E>(T value) implements Result<T, E> {
         @Override
@@ -14,6 +16,11 @@ public sealed interface Result<T, E> {
 
         @Override
         public T unwrapOr(T defaultValue) {
+            return value;
+        }
+
+        @Override
+        public T unwrapOrElse(Supplier<? extends T> supplier) {
             return value;
         }
     }
@@ -32,6 +39,11 @@ public sealed interface Result<T, E> {
         public T unwrapOr(T defaultValue) {
             return defaultValue;
         }
+
+        @Override
+        public T unwrapOrElse(Supplier<? extends T> supplier) {
+            return supplier.get();
+        }
     }
 
     default boolean isOk() {
@@ -45,6 +57,7 @@ public sealed interface Result<T, E> {
     T unwrap();
     T unwrap(String message);
     T unwrapOr(T defaultValue);
+    T unwrapOrElse(Supplier<? extends T> supplier);
 
     static <T, E> Result<T, E> ok(T value) {
         return new Result.Ok<>(value);

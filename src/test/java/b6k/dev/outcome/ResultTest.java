@@ -46,6 +46,15 @@ public class ResultTest {
                 void returnValueForOk() {
                     assertEquals(OK_VALUE, okResult.unwrapOr(23));
                 }
+
+            }
+
+            @Nested
+            class UnwrapOrElse {
+                @Test
+                void returnValueForOk() {
+                    assertEquals(OK_VALUE, okResult.unwrapOrElse(() -> 44));
+                }
             }
         }
 
@@ -88,11 +97,20 @@ public class ResultTest {
             @Nested
             class UnwrapOr {
 
-
                 @Test
                 void returnDefaultForErr() {
                     var fallback = 23;
                     assertEquals(fallback, errResult.unwrapOr(fallback));
+                }
+            }
+
+            @Nested
+            class UnwrapOrElse {
+
+                @Test
+                void returnDefaultForErr() {
+                    var fallback = 41;
+                    assertEquals(fallback, errResult.unwrapOrElse(() -> 41));
                 }
             }
         }
