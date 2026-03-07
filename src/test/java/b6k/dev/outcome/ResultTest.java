@@ -58,6 +58,27 @@ public class ResultTest {
             }
         }
 
+        @Nested
+        class Map {
+
+            @Test
+            void transformValue() {
+                var result = Result.ok(3).map(it -> it * 3);
+
+                assertEquals(9, result.unwrap());
+            }
+
+            @Nested
+            class MapError {
+                @Test
+                void preservesValue() {
+                    var result = okResult.mapError(String::toUpperCase);
+
+                    assertEquals(OK_VALUE, result.unwrap());
+                }
+            }
+        }
+
     }
 
     @Nested
@@ -111,6 +132,26 @@ public class ResultTest {
                 void returnDefaultForErr() {
                     var fallback = 41;
                     assertEquals(fallback, errResult.unwrapOrElse(() -> 41));
+                }
+            }
+        }
+
+        @Nested
+        class Map {
+            @Test
+            void preserveError() {
+                var result = Result.<Integer, String>err("oops").map(it -> it * 3);
+
+                assertTrue(result.isErr());
+            }
+
+            @Nested
+            class MapError {
+                @Test
+                void transformsError() {
+                    var result = errResult.mapError(String::toUpperCase);
+
+                    assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError());
                 }
             }
         }
