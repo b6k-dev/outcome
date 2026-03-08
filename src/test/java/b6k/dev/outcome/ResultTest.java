@@ -1,26 +1,29 @@
 package b6k.dev.outcome;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Function;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ResultTest {
+class ResultTest {
+
+    private static final int OK_VALUE = 45;
+    private static final String ERR_VALUE = "oops";
+
+    private Result<Integer, String> okResult() {
+        return Result.ok(OK_VALUE);
+    }
+
+    private Result<Integer, String> errResult() {
+        return Result.err(ERR_VALUE);
+    }
 
     @Nested
-    class Ok {
-        private static final Integer OK_VALUE = 45;
-        private Result<Integer, String> okResult;
-
-        @BeforeEach
-        void setup() {
-            okResult = Result.ok(OK_VALUE);
-        }
-
+    class FactoryMethods {
         @Test
         void createOkWithValue() {
             var result = Result.ok(12);
@@ -29,153 +32,140 @@ public class ResultTest {
             assertFalse(result.isErr());
         }
 
-        @Nested
-        class Unwrap {
-
-            @Test
-            void returnValue() {
-                assertEquals(OK_VALUE, okResult.unwrap());
-            }
-
-            @Test
-            void returnValueIgnoreMessage() {
-                assertEquals(OK_VALUE, okResult.unwrap("blah, blah"));
-            }
-
-            @Nested
-            class UnwrapOr {
-                @Test
-                void returnValueForOk() {
-                    assertEquals(OK_VALUE, okResult.unwrapOr(23));
-                }
-
-            }
-
-            @Nested
-            class UnwrapOrElse {
-                @Test
-                void returnValueForOk() {
-                    assertEquals(OK_VALUE, okResult.unwrapOrElse(() -> 44));
-                }
-            }
-        }
-
-        @Nested
-        class Map {
-
-            @Test
-            void transformValue() {
-                var result = Result.ok(3).map(it -> it * 3);
-
-                assertEquals(9, result.unwrap());
-            }
-
-            @Test
-            void acceptsMapperWithBroaderInputAndNarrowerOutput() {
-                Result<Integer, String> result = Result.ok(OK_VALUE);
-                Function<Number, StringBuilder> mapper = value -> new StringBuilder(value.toString());
-
-                Result<CharSequence, String> mapped = result.map(mapper);
-
-                assertEquals("45", mapped.unwrap().toString());
-            }
-
-            @Nested
-            class MapError {
-                @Test
-                void preservesValue() {
-                    var result = okResult.mapError(String::toUpperCase);
-
-                    assertEquals(OK_VALUE, result.unwrap());
-                }
-            }
-        }
-
-    }
-
-    @Nested
-    class Err {
-        private static final String ERR_VALUE = "oops";
-
-        private Result<Integer, String> errResult;
-
-        @BeforeEach
-        void setup() {
-            errResult = Result.err(ERR_VALUE);
-        }
-
         @Test
         void createErrWithValue() {
             var result = Result.err("oops");
 
-
             assertTrue(result.isErr());
             assertFalse(result.isOk());
         }
+    }
 
-        @Nested
-        class Unwrap {
-            @Test
-            void throwWithDefaultMessage() {
-                assertThatThrownBy(() -> errResult.unwrap()).isInstanceOf(IllegalStateException.class).hasMessage("Tried to unwrap an error");
-            }
-
-            @Test
-            void throwWithMessage() {
-                var message = "blah, blah";
-
-                assertThatThrownBy(() -> errResult.unwrap(message)).isInstanceOf(IllegalStateException.class).hasMessage(message);
-            }
-
-            @Nested
-            class UnwrapOr {
-
-                @Test
-                void returnDefaultForErr() {
-                    var fallback = 23;
-                    assertEquals(fallback, errResult.unwrapOr(fallback));
-                }
-            }
-
-            @Nested
-            class UnwrapOrElse {
-
-                @Test
-                void returnDefaultForErr() {
-                    var fallback = 41;
-                    assertEquals(fallback, errResult.unwrapOrElse(() -> 41));
-                }
-            }
+    @Nested
+    class Unwrap {
+        @Test
+        void returnsValueForOk() {
+            assertEquals(OK_VALUE, okResult().unwrap());
         }
 
-        @Nested
-        class Map {
-            @Test
-            void preserveError() {
-                var result = Result.<Integer, String>err("oops").map(it -> it * 3);
+        @Test
+        void ignoresMessageForOk() {
+            assertEquals(OK_VALUE, okResult().unwrap("blah, blah"));
+        }
 
-                assertTrue(result.isErr());
-            }
+        @Test
+        void throwsWithDefaultMessageForErr() {
+            var exception = assertThrows(IllegalStateException.class, () -> errResult().unwrap());
 
-            @Nested
-            class MapError {
-                @Test
-                void transformsError() {
-                    var result = errResult.mapError(String::toUpperCase);
+            assertEquals("Tried to unwrap an error", exception.getMessage());
+        }
 
-                    assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError());
-                }
+        @Test
+        void throwsWithCustomMessageForErr() {
+            var message = "blah, blah";
 
-                @Test
-                void acceptsMapperWithBroaderInputAndNarrowerOutput() {
-                    Result<Integer, String> result = Result.err(ERR_VALUE);
-                    Function<Object, StringBuilder> mapper = value -> new StringBuilder(value.toString().toUpperCase());
+            var exception = assertThrows(IllegalStateException.class, () -> errResult().unwrap(message));
 
-                    Result<Integer, CharSequence> mapped = result.mapError(mapper);
+            assertEquals(message, exception.getMessage());
+        }
+    }
 
-                    assertEquals(ERR_VALUE.toUpperCase(), mapped.unwrapError().toString());
-                }
-            }
+    @Nested
+    class UnwrapError {
+        @Test
+        void throwsForOk() {
+            assertThatThrownBy(() -> okResult().unwrapError())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Tried to unwrap error from an ok value");
+        }
+
+        @Test
+        void returnsErrorForErr() {
+            assertThat(errResult().unwrapError()).isEqualTo(ERR_VALUE);
+        }
+    }
+
+    @Nested
+    class UnwrapOr {
+        @Test
+        void returnsValueForOk() {
+            assertEquals(OK_VALUE, okResult().unwrapOr(23));
+        }
+
+        @Test
+        void returnsDefaultForErr() {
+            var fallback = 23;
+
+            assertEquals(fallback, errResult().unwrapOr(fallback));
+        }
+    }
+
+    @Nested
+    class UnwrapOrElse {
+        @Test
+        void returnsValueForOk() {
+            assertEquals(OK_VALUE, okResult().unwrapOrElse(() -> 44));
+        }
+
+        @Test
+        void returnsDefaultForErr() {
+            var fallback = 41;
+
+            assertEquals(fallback, errResult().unwrapOrElse(() -> fallback));
+        }
+    }
+
+    @Nested
+    class Map {
+        @Test
+        void transformsValueForOk() {
+            var result = Result.ok(3).map(it -> it * 3);
+
+            assertEquals(9, result.unwrap());
+        }
+
+        @Test
+        void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+            Result<Integer, String> result = okResult();
+            Function<Number, StringBuilder> mapper = value -> new StringBuilder(value.toString());
+
+            Result<CharSequence, String> mapped = result.map(mapper);
+
+            assertEquals("45", mapped.unwrap().toString());
+        }
+
+        @Test
+        void preservesErrorForErr() {
+            var result = errResult().map(it -> it * 3);
+
+            assertTrue(result.isErr());
+        }
+    }
+
+    @Nested
+    class MapError {
+        @Test
+        void preservesValueForOk() {
+            var result = okResult().mapError(String::toUpperCase);
+
+            assertEquals(OK_VALUE, result.unwrap());
+        }
+
+        @Test
+        void transformsErrorForErr() {
+            var result = errResult().mapError(String::toUpperCase);
+
+            assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError());
+        }
+
+        @Test
+        void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+            Result<Integer, String> result = errResult();
+            Function<Object, StringBuilder> mapper = value -> new StringBuilder(value.toString().toUpperCase());
+
+            Result<Integer, CharSequence> mapped = result.mapError(mapper);
+
+            assertEquals(ERR_VALUE.toUpperCase(), mapped.unwrapError().toString());
         }
     }
 }
