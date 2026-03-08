@@ -28,6 +28,8 @@ public sealed interface Result<T, E> {
 
     <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper);
 
+    <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback);
+
     record Ok<T, E>(T value) implements Result<T, E> {
         @Override
         public T unwrap() {
@@ -68,6 +70,12 @@ public sealed interface Result<T, E> {
         @Override
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
             return mapper.apply(value);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
+            return (Result<T, E2>) this;
         }
     }
 
@@ -112,6 +120,11 @@ public sealed interface Result<T, E> {
         @SuppressWarnings("unchecked")
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
             return (Result<U, E>) this;
+        }
+
+        @Override
+        public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
+            return fallback.apply(this.error);
         }
     }
 

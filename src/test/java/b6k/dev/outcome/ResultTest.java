@@ -3,6 +3,7 @@ package b6k.dev.outcome;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,6 +113,58 @@ class ResultTest {
             var fallback = 41;
 
             assertEquals(fallback, errResult().unwrapOrElse(() -> fallback));
+        }
+    }
+
+    @Nested
+    class OrElse {
+        @Test
+        void preservesValueForOk() {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().orElse(_ -> {
+                called.set(true);
+                return Result.ok(23);
+            });
+
+            assertEquals(OK_VALUE, result.unwrap());
+            assertFalse(called.get());
+        }
+
+        @Test
+        void allowsChangingErrorTypeForOk() {
+            Result<Integer, IllegalStateException> result =
+                    okResult().orElse(error -> Result.err(new IllegalStateException(error)));
+
+            assertEquals(OK_VALUE, result.unwrap());
+        }
+
+        @Test
+        void recoversErrToOk() {
+            var result = errResult().orElse(error -> Result.ok(error.length()));
+
+            assertEquals(ERR_VALUE.length(), result.unwrap());
+        }
+
+        @Test
+        void transformsErrToDifferentErrorType() {
+            Result<Integer, IllegalStateException> result =
+                    errResult().orElse(error -> Result.err(new IllegalStateException("new error")));
+
+            assertThat(result.unwrapError())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("new error");
+        }
+
+        @Test
+        void acceptsRecoveryWithBroaderInputAndNarrowerOutput() {
+            Result<Integer, String> result = errResult();
+            Function<Object, Result<Integer, CharSequence>> recovery =
+                    value -> Result.err(new StringBuilder(value.toString().toUpperCase()));
+
+            var recovered = result.orElse(recovery);
+
+            assertEquals(ERR_VALUE.toUpperCase(), recovered.unwrapError().toString());
         }
     }
 
