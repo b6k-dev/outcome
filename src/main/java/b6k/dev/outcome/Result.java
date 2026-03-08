@@ -67,7 +67,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
-            return null;
+            return mapper.apply(value);
         }
     }
 
@@ -109,8 +109,9 @@ public sealed interface Result<T, E> {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
-            return null;
+            return (Result<U, E>) this;
         }
     }
 
