@@ -4,6 +4,30 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public sealed interface Result<T, E> {
+    <U> Result<U, E> map(Function<? super T, ? extends U> mapper);
+
+    <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper);
+
+    default boolean isOk() {
+        return this instanceof Result.Ok<T, E>;
+    }
+
+    default boolean isErr() {
+        return this instanceof Result.Err<T, E>;
+    }
+
+    T unwrap();
+
+    E unwrapError();
+
+    T unwrap(String message);
+
+    T unwrapOr(T defaultValue);
+
+    T unwrapOrElse(Supplier<? extends T> supplier);
+
+    <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper);
+
     record Ok<T, E>(T value) implements Result<T, E> {
         @Override
         public T unwrap() {
@@ -31,14 +55,19 @@ public sealed interface Result<T, E> {
         }
 
         @Override
-        public <U> Result<U, E> map(Function<T, U> mapper) {
+        public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
             return Result.ok(mapper.apply(this.value));
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public <U> Result<T, U> mapError(Function<E, U> mapper) {
+        public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
             return (Result<T, U>) this;
+        }
+
+        @Override
+        public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
+            return null;
         }
     }
 
@@ -70,31 +99,20 @@ public sealed interface Result<T, E> {
 
         @Override
         @SuppressWarnings("unchecked")
-        public <U> Result<U, E> map(Function<T, U> mapper) {
+        public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
             return (Result<U, E>) this;
         }
 
         @Override
-        public <U> Result<T, U> mapError(Function<E, U> mapper) {
+        public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
             return Result.err(mapper.apply(this.error));
         }
-    }
 
-    default boolean isOk() {
-        return this instanceof Result.Ok<T,E>;
+        @Override
+        public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
+            return null;
+        }
     }
-
-    default boolean isErr() {
-        return this instanceof Result.Err<T,E>;
-    }
-
-    T unwrap();
-    E unwrapError();
-    T unwrap(String message);
-    T unwrapOr(T defaultValue);
-    T unwrapOrElse(Supplier<? extends T> supplier);
-    <U> Result<U, E> map(Function<T, U> mapper);
-    <U> Result<T, U> mapError(Function<E, U> mapper);
 
     static <T, E> Result<T, E> ok(T value) {
         return new Result.Ok<>(value);

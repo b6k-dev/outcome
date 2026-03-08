@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.function.Function;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -66,6 +68,16 @@ public class ResultTest {
                 var result = Result.ok(3).map(it -> it * 3);
 
                 assertEquals(9, result.unwrap());
+            }
+
+            @Test
+            void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+                Result<Integer, String> result = Result.ok(OK_VALUE);
+                Function<Number, StringBuilder> mapper = value -> new StringBuilder(value.toString());
+
+                Result<CharSequence, String> mapped = result.map(mapper);
+
+                assertEquals("45", mapped.unwrap().toString());
             }
 
             @Nested
@@ -152,6 +164,16 @@ public class ResultTest {
                     var result = errResult.mapError(String::toUpperCase);
 
                     assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError());
+                }
+
+                @Test
+                void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+                    Result<Integer, String> result = Result.err(ERR_VALUE);
+                    Function<Object, StringBuilder> mapper = value -> new StringBuilder(value.toString().toUpperCase());
+
+                    Result<Integer, CharSequence> mapped = result.mapError(mapper);
+
+                    assertEquals(ERR_VALUE.toUpperCase(), mapped.unwrapError().toString());
                 }
             }
         }
