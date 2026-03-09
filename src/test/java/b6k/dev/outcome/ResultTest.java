@@ -1,5 +1,6 @@
 package b6k.dev.outcome;
 
+import b6k.dev.outcome.error.Panic;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -56,18 +57,18 @@ class ResultTest {
 
         @Test
         void throwsWithDefaultMessageForErr() {
-            var exception = assertThrows(IllegalStateException.class, () -> errResult().unwrap());
+            var panic = assertThrows(Panic.class, () -> errResult().unwrap());
 
-            assertEquals("Tried to unwrap an error", exception.getMessage());
+            assertEquals("Tried to unwrap an error", panic.getMessage());
         }
 
         @Test
         void throwsWithCustomMessageForErr() {
             var message = "blah, blah";
 
-            var exception = assertThrows(IllegalStateException.class, () -> errResult().unwrap(message));
+            var panic = assertThrows(Panic.class, () -> errResult().unwrap(message));
 
-            assertEquals(message, exception.getMessage());
+            assertEquals(message, panic.getMessage());
         }
     }
 
@@ -75,8 +76,7 @@ class ResultTest {
     class UnwrapError {
         @Test
         void throwsForOk() {
-            assertThatThrownBy(() -> okResult().unwrapError())
-                    .isInstanceOf(IllegalStateException.class)
+            assertThatThrownBy(() -> okResult().unwrapError()).isInstanceOf(Panic.class)
                     .hasMessage("Tried to unwrap error from an ok value");
         }
 
@@ -148,8 +148,7 @@ class ResultTest {
 
         @Test
         void transformsErrToDifferentErrorType() {
-            Result<Integer, IllegalStateException> result =
-                    errResult().orElse(error -> Result.err(new IllegalStateException("new error")));
+            Result<Integer, IllegalStateException> result = errResult().orElse(_ -> Result.err(new IllegalStateException("new error")));
 
             assertThat(result.unwrapError())
                     .isInstanceOf(IllegalStateException.class)

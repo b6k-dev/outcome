@@ -1,7 +1,11 @@
 package b6k.dev.outcome;
 
+import b6k.dev.outcome.error.Panic;
+
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static b6k.dev.outcome.error.Panic.tryOrPanic;
 
 public sealed interface Result<T, E> {
     <U> Result<U, E> map(Function<? super T, ? extends U> mapper);
@@ -38,7 +42,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public E unwrapError() {
-           throw new IllegalStateException("Tried to unwrap error from an ok value");
+           throw new Panic("Tried to unwrap error from an ok value");
         }
 
         @Override
@@ -58,7 +62,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
-            return Result.ok(mapper.apply(this.value));
+            return tryOrPanic(() -> Result.ok(mapper.apply(this.value)), "mapper threw an exception");
         }
 
         @Override
@@ -69,7 +73,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
-            return mapper.apply(value);
+            return tryOrPanic(() -> mapper.apply(value), "mapper threw an exception");
         }
 
         @Override
@@ -82,7 +86,7 @@ public sealed interface Result<T, E> {
     record Err<T, E>(E error) implements Result<T, E> {
         @Override
         public T unwrap() {
-            throw new IllegalStateException("Tried to unwrap an error");
+            throw new Panic("Tried to unwrap an error");
         }
 
         @Override
@@ -92,7 +96,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public T unwrap(String message) {
-            throw new IllegalStateException(message);
+            throw new Panic(message);
         }
 
         @Override
@@ -113,7 +117,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
-            return Result.err(mapper.apply(this.error));
+            return tryOrPanic(() -> Result.err(mapper.apply(this.error)), "mapper threw an exception");
         }
 
         @Override
@@ -124,7 +128,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
-            return fallback.apply(this.error);
+            return tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception");
         }
     }
 
