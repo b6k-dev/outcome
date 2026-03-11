@@ -139,4 +139,17 @@ public sealed interface Result<T, E> {
     static <T, E> Result<T, E> err(E error) {
         return new Result.Err<>(error);
     }
+
+    static <T> Result<T, Throwable> trying(Supplier<T> supplier) {
+        try {
+            return Result.ok(supplier.get());
+        } catch (Throwable e) {
+            return Result.err(e);
+        }
+    }
+
+    static <T, E> Result<T, E> trying(Supplier<T> supplier, Function<? super Throwable, ? extends E> errorMapper) {
+        return Result.trying(supplier)
+                .mapError(errorMapper);
+    }
 }

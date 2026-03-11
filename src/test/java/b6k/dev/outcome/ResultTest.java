@@ -44,6 +44,61 @@ class ResultTest {
     }
 
     @Nested
+    class Trying {
+        @Test
+        void returnsOkWhenSupplierSucceeds() {
+            var result = Result.trying(() -> OK_VALUE);
+
+            assertEquals(Result.ok(OK_VALUE), result);
+        }
+
+        @Test
+        void returnsErrWhenSupplierThrows() {
+            var error = new IllegalStateException("boom");
+
+            var result = Result.trying(() -> {
+                throw error;
+            });
+
+            assertEquals(Result.err(error), result);
+        }
+
+        @Test
+        void mapsThrownErrorWhenErrorMapperProvided() {
+            var result = Result.trying(
+                    () -> {
+                        throw new IllegalStateException("boom");
+                    },
+                    Throwable::getMessage
+            );
+
+            assertEquals(Result.err("boom"), result);
+        }
+
+        @Test
+        void preservesValueWhenErrorMapperProvidedAndSupplierSucceeds() {
+            var result = Result.trying(() -> OK_VALUE, Throwable::getMessage);
+
+            assertEquals(Result.ok(OK_VALUE), result);
+        }
+
+        @Test
+        void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+            Function<Object, StringBuilder> errorMapper = error ->
+                    new StringBuilder(((Throwable) error).getMessage().toUpperCase());
+
+            Result<Integer, CharSequence> result = Result.trying(
+                    () -> {
+                        throw new IllegalArgumentException(ERR_VALUE);
+                    },
+                    errorMapper
+            );
+
+            assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError().toString());
+        }
+    }
+
+    @Nested
     class Unwrap {
         @Test
         void returnsValueForOk() {
