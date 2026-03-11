@@ -66,9 +66,8 @@ public sealed interface Result<T, E> {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
-            return (Result<T, U>) this;
+            return this.withErrorType();
         }
 
         @Override
@@ -77,8 +76,12 @@ public sealed interface Result<T, E> {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
+            return this.withErrorType();
+        }
+
+        @SuppressWarnings("unchecked")
+        public <E2> Result<T, E2> withErrorType() {
             return (Result<T, E2>) this;
         }
     }
@@ -110,9 +113,8 @@ public sealed interface Result<T, E> {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
-            return (Result<U, E>) this;
+            return this.withValueType();
         }
 
         @Override
@@ -121,14 +123,18 @@ public sealed interface Result<T, E> {
         }
 
         @Override
-        @SuppressWarnings("unchecked")
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
-            return (Result<U, E>) this;
+            return this.withValueType();
         }
 
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
             return tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception");
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T2> Result<T2, E> withValueType() {
+            return (Result<T2, E>) this;
         }
     }
 
