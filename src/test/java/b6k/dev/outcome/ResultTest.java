@@ -4,8 +4,10 @@ import b6k.dev.outcome.error.Panic;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,6 +42,57 @@ class ResultTest {
 
             assertTrue(result.isErr());
             assertFalse(result.isOk());
+        }
+
+        @Test
+        void createOkFromNonNullValue() {
+            var called = new AtomicBoolean(false);
+
+            var result = Result.fromNullable(OK_VALUE, () -> {
+                called.set(true);
+                return ERR_VALUE;
+            });
+
+            assertEquals(Result.ok(OK_VALUE), result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void createErrFromNullValue() {
+            var result = Result.fromNullable(null, () -> ERR_VALUE);
+
+            assertEquals(Result.err(ERR_VALUE), result);
+        }
+
+        @Test
+        void createOkFromPresentOptional() {
+            var called = new AtomicBoolean(false);
+
+            var result = Result.fromOptional(Optional.of(OK_VALUE), () -> {
+                called.set(true);
+                return ERR_VALUE;
+            });
+
+            assertEquals(Result.ok(OK_VALUE), result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void createErrFromEmptyOptional() {
+            var result = Result.fromOptional(Optional.empty(), () -> ERR_VALUE);
+
+            assertEquals(Result.err(ERR_VALUE), result);
+        }
+
+        @Test
+        void acceptsSuppliersReturningSubtypeForFactoryMethods() {
+            Supplier<StringBuilder> onMissing = () -> new StringBuilder(ERR_VALUE.toUpperCase());
+
+            Result<Integer, CharSequence> fromNullable = Result.fromNullable(null, onMissing);
+            Result<Integer, CharSequence> fromOptional = Result.fromOptional(Optional.empty(), onMissing);
+
+            assertEquals(ERR_VALUE.toUpperCase(), fromNullable.unwrapError().toString());
+            assertEquals(ERR_VALUE.toUpperCase(), fromOptional.unwrapError().toString());
         }
     }
 

@@ -2,6 +2,7 @@ package b6k.dev.outcome;
 
 import b6k.dev.outcome.error.Panic;
 
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -183,4 +184,18 @@ public sealed interface Result<T, E> {
         return Result.trying(supplier)
                 .mapError(errorMapper);
     }
+
+    static <T, E> Result<T, E> fromNullable(T value, Supplier<? extends E> onNullSupplier) {
+        return Optional.ofNullable(value)
+                .<Result<T, E>>map(Result::ok)
+                .orElseGet(() -> Result.err(onNullSupplier.get()));
+    }
+
+    static <T, E> Result<T, E> fromOptional(Optional<T> value, Supplier<? extends E> onEmptySupplier) {
+        return value
+                .<Result<T, E>>map(Result::ok)
+                .orElseGet(() -> Result.err(onEmptySupplier.get()));
+    }
+
+
 }
