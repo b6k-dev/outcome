@@ -2,6 +2,7 @@ package b6k.dev.outcome;
 
 import b6k.dev.outcome.error.Panic;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -42,6 +43,10 @@ public sealed interface Result<T, E> {
 
 
     record Ok<T, E>(T value) implements Result<T, E> {
+        public Ok {
+            Objects.requireNonNull(value, "value must not be null");
+        }
+
         @Override
         public T unwrap() {
             return value;
@@ -74,21 +79,28 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
-            return tryOrPanic(() -> Result.ok(mapper.apply(this.value)), "mapper threw an exception");
+            Objects.requireNonNull(mapper, "mapper must not be null");
+            return Result.ok(tryOrPanic(() -> mapper.apply(this.value), "mapper threw an exception"));
         }
 
         @Override
         public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
+            Objects.requireNonNull(mapper, "mapper must not be null");
             return this.withErrorType();
         }
 
         @Override
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
-            return tryOrPanic(() -> mapper.apply(value), "mapper threw an exception");
+            Objects.requireNonNull(mapper, "mapper must not be null");
+            return Objects.requireNonNull(
+                    tryOrPanic(() -> mapper.apply(value), "mapper threw an exception"),
+                    "mapper result must not be null"
+            );
         }
 
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
+            Objects.requireNonNull(fallback, "fallback must not be null");
             return this.withErrorType();
         }
 
@@ -99,6 +111,8 @@ public sealed interface Result<T, E> {
 
         @Override
         public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
+            Objects.requireNonNull(okMapper, "okMapper must not be null");
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
             return okMapper.apply(this.value);
         }
 
@@ -109,6 +123,10 @@ public sealed interface Result<T, E> {
     }
 
     record Err<T, E>(E error) implements Result<T, E> {
+        public Err {
+            Objects.requireNonNull(error, "error must not be null");
+        }
+
         @Override
         public T unwrap() {
             throw new Panic("Tried to unwrap an error");
@@ -141,22 +159,29 @@ public sealed interface Result<T, E> {
 
         @Override
         public <U> Result<U, E> map(Function<? super T, ? extends U> mapper) {
+            Objects.requireNonNull(mapper, "mapper must not be null");
             return this.withValueType();
         }
 
         @Override
         public <U> Result<T, U> mapError(Function<? super E, ? extends U> mapper) {
-            return tryOrPanic(() -> Result.err(mapper.apply(this.error)), "mapper threw an exception");
+            Objects.requireNonNull(mapper, "mapper must not be null");
+            return Result.err(tryOrPanic(() -> mapper.apply(this.error), "mapper threw an exception"));
         }
 
         @Override
         public <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper) {
+            Objects.requireNonNull(mapper, "mapper must not be null");
             return this.withValueType();
         }
 
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
-            return tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception");
+            Objects.requireNonNull(fallback, "fallback must not be null");
+            return Objects.requireNonNull(
+                    tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception"),
+                    "fallback result must not be null"
+            );
         }
 
         @Override
@@ -166,6 +191,8 @@ public sealed interface Result<T, E> {
 
         @Override
         public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
+            Objects.requireNonNull(okMapper, "okMapper must not be null");
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
             return errorMapper.apply(this.error);
         }
 
@@ -184,6 +211,7 @@ public sealed interface Result<T, E> {
     }
 
     static <T> Result<T, Throwable> trying(Supplier<T> supplier) {
+        Objects.requireNonNull(supplier, "supplier must not be null");
         try {
             return Result.ok(supplier.get());
         } catch (Throwable e) {
@@ -192,6 +220,8 @@ public sealed interface Result<T, E> {
     }
 
     static <T, E> Result<T, E> trying(Supplier<T> supplier, Function<? super Throwable, ? extends E> errorMapper) {
+        Objects.requireNonNull(supplier, "supplier must not be null");
+        Objects.requireNonNull(errorMapper, "errorMapper must not be null");
         return Result.trying(supplier)
                 .mapError(errorMapper);
     }
@@ -203,6 +233,7 @@ public sealed interface Result<T, E> {
     }
 
     static <T, E> Result<T, E> fromOptional(Optional<T> value, Supplier<? extends E> onEmptySupplier) {
+        Objects.requireNonNull(value, "value must not be null");
         return value
                 .<Result<T, E>>map(Result::ok)
                 .orElseGet(() -> Result.err(onEmptySupplier.get()));

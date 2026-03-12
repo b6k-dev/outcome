@@ -94,10 +94,38 @@ class ResultTest {
             assertEquals(ERR_VALUE.toUpperCase(), fromNullable.unwrapError().toString());
             assertEquals(ERR_VALUE.toUpperCase(), fromOptional.unwrapError().toString());
         }
+
+        @Test
+        void rejectsNullOkValue() {
+            assertThatThrownBy(() -> Result.ok(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("value must not be null");
+        }
+
+        @Test
+        void rejectsNullErrValue() {
+            assertThatThrownBy(() -> Result.err(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("error must not be null");
+        }
+
+        @Test
+        void rejectsNullOptionalReference() {
+            assertThatThrownBy(() -> Result.fromOptional(null, () -> ERR_VALUE))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("value must not be null");
+        }
     }
 
     @Nested
     class Trying {
+        @Test
+        void rejectsNullSupplier() {
+            assertThatThrownBy(() -> Result.trying(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("supplier must not be null");
+        }
+
         @Test
         void returnsOkWhenSupplierSucceeds() {
             var result = Result.trying(() -> OK_VALUE);
@@ -148,6 +176,13 @@ class ResultTest {
             );
 
             assertEquals(ERR_VALUE.toUpperCase(), result.unwrapError().toString());
+        }
+
+        @Test
+        void rejectsNullErrorMapper() {
+            assertThatThrownBy(() -> Result.trying(() -> OK_VALUE, null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
         }
     }
 
@@ -303,6 +338,23 @@ class ResultTest {
 
             assertEquals(ERR_VALUE.toUpperCase(), recovered.unwrapError().toString());
         }
+
+        @Test
+        void rejectsNullFallback() {
+            assertThatThrownBy(() -> okResult().orElse(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("fallback must not be null");
+            assertThatThrownBy(() -> errResult().orElse(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("fallback must not be null");
+        }
+
+        @Test
+        void rejectsNullFallbackResult() {
+            assertThatThrownBy(() -> errResult().orElse(_ -> null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("fallback result must not be null");
+        }
     }
 
     @Nested
@@ -364,6 +416,23 @@ class ResultTest {
 
             assertTrue(result.isErr());
         }
+
+        @Test
+        void rejectsNullMapper() {
+            assertThatThrownBy(() -> okResult().map(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+            assertThatThrownBy(() -> errResult().map(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+        }
+
+        @Test
+        void rejectsNullMappedValue() {
+            assertThatThrownBy(() -> okResult().map(_ -> null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("value must not be null");
+        }
     }
 
     @Nested
@@ -390,6 +459,23 @@ class ResultTest {
             Result<Integer, CharSequence> mapped = result.mapError(mapper);
 
             assertEquals(ERR_VALUE.toUpperCase(), mapped.unwrapError().toString());
+        }
+
+        @Test
+        void rejectsNullMapper() {
+            assertThatThrownBy(() -> okResult().mapError(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+            assertThatThrownBy(() -> errResult().mapError(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+        }
+
+        @Test
+        void rejectsNullMappedError() {
+            assertThatThrownBy(() -> errResult().mapError(_ -> null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("error must not be null");
         }
     }
 
@@ -436,6 +522,23 @@ class ResultTest {
             Result<CharSequence, String> mapped = result.flatMap(mapper);
 
             assertEquals("45", mapped.unwrap().toString());
+        }
+
+        @Test
+        void rejectsNullMapper() {
+            assertThatThrownBy(() -> okResult().flatMap(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+            assertThatThrownBy(() -> errResult().flatMap(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper must not be null");
+        }
+
+        @Test
+        void rejectsNullMappedResult() {
+            assertThatThrownBy(() -> okResult().flatMap(_ -> null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("mapper result must not be null");
         }
     }
 
@@ -486,6 +589,16 @@ class ResultTest {
             CharSequence folded = result.fold(okMapper, errorMapper);
 
             assertEquals("45", folded.toString());
+        }
+
+        @Test
+        void rejectsNullMappers() {
+            assertThatThrownBy(() -> okResult().fold(null, String::length))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("okMapper must not be null");
+            assertThatThrownBy(() -> errResult().fold(value -> value * 2, null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
         }
     }
 }
