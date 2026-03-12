@@ -69,11 +69,13 @@ public sealed interface Result<T, E> {
 
         @Override
         public T unwrapOrElse(Supplier<? extends T> supplier) {
+            Objects.requireNonNull(supplier, "supplier must not be null");
             return value;
         }
 
         @Override
         public T unwrapOrElse(Function<? super E, ? extends T> errorMapper) {
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
             return value;
         }
 
@@ -106,6 +108,7 @@ public sealed interface Result<T, E> {
 
         @Override
         public <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) {
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
             return this.value;
         }
 
@@ -113,7 +116,7 @@ public sealed interface Result<T, E> {
         public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
             Objects.requireNonNull(okMapper, "okMapper must not be null");
             Objects.requireNonNull(errorMapper, "errorMapper must not be null");
-            return okMapper.apply(this.value);
+            return tryOrPanic(() -> okMapper.apply(this.value), "okMapper threw an exception");
         }
 
         @SuppressWarnings("unchecked")
@@ -149,12 +152,14 @@ public sealed interface Result<T, E> {
 
         @Override
         public T unwrapOrElse(Supplier<? extends T> supplier) {
-            return supplier.get();
+            Objects.requireNonNull(supplier, "supplier must not be null");
+            return tryOrPanic(supplier::get, "supplier threw an exception");
         }
 
         @Override
         public T unwrapOrElse(Function<? super E, ? extends T> errorMapper) {
-            return errorMapper.apply(this.error);
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
+            return tryOrPanic(() -> errorMapper.apply(this.error), "errorMapper threw an exception");
         }
 
         @Override
@@ -186,14 +191,18 @@ public sealed interface Result<T, E> {
 
         @Override
         public <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) throws X {
-            throw errorMapper.apply(this.error);
+            Objects.requireNonNull(errorMapper, "errorMapper must not be null");
+            throw Objects.requireNonNull(
+                    tryOrPanic(() -> errorMapper.apply(this.error), "errorMapper threw an exception"),
+                    "errorMapper result must not be null"
+            );
         }
 
         @Override
         public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
             Objects.requireNonNull(okMapper, "okMapper must not be null");
             Objects.requireNonNull(errorMapper, "errorMapper must not be null");
-            return errorMapper.apply(this.error);
+            return tryOrPanic(() -> errorMapper.apply(this.error), "errorMapper threw an exception");
         }
 
         @SuppressWarnings("unchecked")
@@ -227,16 +236,18 @@ public sealed interface Result<T, E> {
     }
 
     static <T, E> Result<T, E> fromNullable(T value, Supplier<? extends E> onNullSupplier) {
+        Objects.requireNonNull(onNullSupplier, "onNullSupplier must not be null");
         return Optional.ofNullable(value)
                 .<Result<T, E>>map(Result::ok)
-                .orElseGet(() -> Result.err(onNullSupplier.get()));
+                .orElseGet(() -> Result.err(tryOrPanic(onNullSupplier::get, "onNullSupplier threw an exception")));
     }
 
     static <T, E> Result<T, E> fromOptional(Optional<T> value, Supplier<? extends E> onEmptySupplier) {
         Objects.requireNonNull(value, "value must not be null");
+        Objects.requireNonNull(onEmptySupplier, "onEmptySupplier must not be null");
         return value
                 .<Result<T, E>>map(Result::ok)
-                .orElseGet(() -> Result.err(onEmptySupplier.get()));
+                .orElseGet(() -> Result.err(tryOrPanic(onEmptySupplier::get, "onEmptySupplier threw an exception")));
     }
 
 

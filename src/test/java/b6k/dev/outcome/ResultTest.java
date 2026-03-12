@@ -115,6 +115,30 @@ class ResultTest {
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("value must not be null");
         }
+
+        @Test
+        void panicsWhenNullFactorySupplierThrows() {
+            assertThatThrownBy(() -> Result.fromNullable(null, () -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("onNullSupplier threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+
+        @Test
+        void panicsWhenEmptyOptionalSupplierThrows() {
+            assertThatThrownBy(() -> Result.fromOptional(Optional.empty(), () -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("onEmptySupplier threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
     }
 
     @Nested
@@ -287,6 +311,50 @@ class ResultTest {
 
             assertEquals(ERR_VALUE.length(), unwrapped.longValue());
         }
+
+        @Test
+        void rejectsNullSupplier() {
+            assertThatThrownBy(() -> okResult().unwrapOrElse((Supplier<Integer>) null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("supplier must not be null");
+            assertThatThrownBy(() -> errResult().unwrapOrElse((Supplier<Integer>) null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("supplier must not be null");
+        }
+
+        @Test
+        void rejectsNullErrorMapper() {
+            assertThatThrownBy(() -> okResult().unwrapOrElse((Function<String, Integer>) null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
+            assertThatThrownBy(() -> errResult().unwrapOrElse((Function<String, Integer>) null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
+        }
+
+        @Test
+        void panicsWhenSupplierThrows() {
+            assertThatThrownBy(() -> errResult().unwrapOrElse(() -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("supplier threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+
+        @Test
+        void panicsWhenErrorMapperThrows() {
+            assertThatThrownBy(() -> errResult().unwrapOrElse(_ -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("errorMapper threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
     }
 
     @Nested
@@ -388,6 +456,35 @@ class ResultTest {
             assertThatThrownBy(() -> result.orThrow(mapper))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage(ERR_VALUE.toUpperCase());
+        }
+
+        @Test
+        void rejectsNullMapper() {
+            assertThatThrownBy(() -> okResult().orThrow(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
+            assertThatThrownBy(() -> errResult().orThrow(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper must not be null");
+        }
+
+        @Test
+        void panicsWhenMapperThrows() {
+            assertThatThrownBy(() -> errResult().orThrow(_ -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("errorMapper threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+
+        @Test
+        void rejectsNullMappedThrowable() {
+            assertThatThrownBy(() -> errResult().orThrow(_ -> null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("errorMapper result must not be null");
         }
     }
 
@@ -599,6 +696,30 @@ class ResultTest {
             assertThatThrownBy(() -> errResult().fold(value -> value * 2, null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("errorMapper must not be null");
+        }
+
+        @Test
+        void panicsWhenOkMapperThrows() {
+            assertThatThrownBy(() -> okResult().fold(_ -> {
+                throw new IllegalStateException("boom");
+            }, String::length))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("okMapper threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+
+        @Test
+        void panicsWhenErrorMapperThrows() {
+            assertThatThrownBy(() -> errResult().fold(value -> value * 2, _ -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("errorMapper threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
         }
     }
 }
