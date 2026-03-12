@@ -640,6 +640,147 @@ class ResultTest {
     }
 
     @Nested
+    class Peek {
+        @Test
+        void observesValueForOk() {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().peek(value -> {
+                called.set(true);
+                assertEquals(OK_VALUE, value);
+            });
+
+            assertEquals(okResult(), result);
+            assertTrue(called.get());
+        }
+
+        @Test
+        void preservesErrorForErrWithoutCallingObserver() {
+            var called = new AtomicBoolean(false);
+
+            var result = errResult().peek(_ -> called.set(true));
+
+            assertEquals(errResult(), result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void rejectsNullObserver() {
+            assertThatThrownBy(() -> okResult().peek(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("observer must not be null");
+            assertThatThrownBy(() -> errResult().peek(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("observer must not be null");
+        }
+
+        @Test
+        void panicsWhenObserverThrows() {
+            assertThatThrownBy(() -> okResult().peek(_ -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("observer threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+    }
+
+    @Nested
+    class PeekErr {
+        @Test
+        void observesErrorForErr() {
+            var called = new AtomicBoolean(false);
+
+            var result = errResult().peekErr(error -> {
+                called.set(true);
+                assertEquals(ERR_VALUE, error);
+            });
+
+            assertEquals(errResult(), result);
+            assertTrue(called.get());
+        }
+
+        @Test
+        void preservesValueForOkWithoutCallingObserver() {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().peekErr(_ -> called.set(true));
+
+            assertEquals(okResult(), result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void rejectsNullObserver() {
+            assertThatThrownBy(() -> okResult().peekErr(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("observer must not be null");
+            assertThatThrownBy(() -> errResult().peekErr(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("observer must not be null");
+        }
+
+        @Test
+        void panicsWhenObserverThrows() {
+            assertThatThrownBy(() -> errResult().peekErr(_ -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("observer threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+    }
+
+    @Nested
+    class Tap {
+        @Test
+        void runsActionForOk() {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().tap(() -> called.set(true));
+
+            assertEquals(okResult(), result);
+            assertTrue(called.get());
+        }
+
+        @Test
+        void runsActionForErr() {
+            var called = new AtomicBoolean(false);
+
+            var result = errResult().tap(() -> called.set(true));
+
+            assertEquals(errResult(), result);
+            assertTrue(called.get());
+        }
+
+        @Test
+        void rejectsNullAction() {
+            assertThatThrownBy(() -> okResult().tap(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("action must not be null");
+            assertThatThrownBy(() -> errResult().tap(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("action must not be null");
+        }
+
+        @Test
+        void panicsWhenActionThrows() {
+            assertThatThrownBy(() -> okResult().tap(() -> {
+                throw new IllegalStateException("boom");
+            }))
+                    .isInstanceOf(Panic.class)
+                    .hasMessage("action threw an exception")
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("boom");
+        }
+    }
+
+    @Nested
     class Fold {
         @Test
         void mapsOkWithOkMapper() {

@@ -4,6 +4,7 @@ import b6k.dev.outcome.error.Panic;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -36,6 +37,12 @@ public sealed interface Result<T, E> {
     <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper);
 
     <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback);
+
+    Result<T, E> peek(Consumer<? super T> observer);
+
+    Result<T, E> peekErr(Consumer<? super E> observer);
+
+    Result<T, E> tap(Runnable action);
 
     <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) throws X;
 
@@ -104,6 +111,32 @@ public sealed interface Result<T, E> {
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
             Objects.requireNonNull(fallback, "fallback must not be null");
             return this.withErrorType();
+        }
+
+        @Override
+        public Result<T, E> peek(Consumer<? super T> observer) {
+            Objects.requireNonNull(observer, "observer must not be null");
+            tryOrPanic(() -> {
+                observer.accept(this.value);
+                return null;
+            }, "observer threw an exception");
+            return this;
+        }
+
+        @Override
+        public Result<T, E> peekErr(Consumer<? super E> observer) {
+            Objects.requireNonNull(observer, "observer must not be null");
+            return this;
+        }
+
+        @Override
+        public Result<T, E> tap(Runnable action) {
+            Objects.requireNonNull(action, "action must not be null");
+            tryOrPanic(() -> {
+                action.run();
+                return null;
+            }, "action threw an exception");
+            return this;
         }
 
         @Override
@@ -187,6 +220,32 @@ public sealed interface Result<T, E> {
                     tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception"),
                     "fallback result must not be null"
             );
+        }
+
+        @Override
+        public Result<T, E> peek(Consumer<? super T> observer) {
+            Objects.requireNonNull(observer, "observer must not be null");
+            return this;
+        }
+
+        @Override
+        public Result<T, E> peekErr(Consumer<? super E> observer) {
+            Objects.requireNonNull(observer, "observer must not be null");
+            tryOrPanic(() -> {
+                observer.accept(this.error);
+                return null;
+            }, "observer threw an exception");
+            return this;
+        }
+
+        @Override
+        public Result<T, E> tap(Runnable action) {
+            Objects.requireNonNull(action, "action must not be null");
+            tryOrPanic(() -> {
+                action.run();
+                return null;
+            }, "action threw an exception");
+            return this;
         }
 
         @Override
