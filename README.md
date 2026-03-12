@@ -31,19 +31,19 @@ Outcome revolves around four ideas:
 Result<User, LoginError> login = authenticate(username, password);
 
 // Ok means success
-Result<Integer, String> ok = Result.ok(42);
+Result<User, LoginError> ok = Result.ok(new User("u-123", "Ada"));
 if (ok.isOk()) {
-    System.out.println(ok.unwrap());
+    System.out.println(ok.unwrap().displayName());
 }
 
 // Err means an expected domain failure
-Result<Integer, String> err = Result.err("missing value");
+Result<User, LoginError> err = Result.err(new InvalidPassword());
 if (err.isErr()) {
     System.out.println(err.unwrapError());
 }
 
 // Panic means a bug or invalid API usage
-Result<Integer, String> failed = Result.err("boom");
+Result<User, LoginError> failed = Result.err(new AccountLocked(300));
 failed.unwrap(); // throws Panic
 
 // Result itself is a sealed sum type, so you can pattern match it directly
@@ -59,35 +59,35 @@ String message = switch (login) {
 
 ```java
 // Create success directly
-Result<Integer, String> ok = Result.ok(8080);
+Result<User, LoginError> ok = Result.ok(new User("u-123", "Ada"));
 
 // Create error directly
-Result<Integer, String> err = Result.err("PORT is missing");
+Result<User, LoginError> err = Result.err(new InvalidPassword());
 
 // Wrap throwing code
-Result<Integer, Throwable> parsed = Result.trying(() -> Integer.parseInt(input));
+Result<UserId, Throwable> parsed = Result.trying(() -> UserId.parse(rawUserId));
 
 // Map thrown exceptions to your own error type
-sealed interface ParseError permits MissingInput, InvalidIntegerFormat {}
-record MissingInput() implements ParseError {}
-record InvalidIntegerFormat(String input) implements ParseError {}
+sealed interface UserIdError permits MissingUserId, InvalidUserId {}
+record MissingUserId() implements UserIdError {}
+record InvalidUserId(String input) implements UserIdError {}
 
-Result<Integer, ParseError> typed = Result.fromNullable(input, MissingInput::new)
+Result<UserId, UserIdError> typed = Result.fromNullable(rawUserId, MissingUserId::new)
         .flatMap(value -> Result.trying(
-                () -> Integer.parseInt(value),
-                error -> new InvalidIntegerFormat(value)
+                () -> UserId.parse(value),
+                error -> new InvalidUserId(value)
         ));
 
 // Convert nullable values
-Result<User, String> userFromNullable = Result.fromNullable(
+Result<User, LoginError> userFromNullable = Result.fromNullable(
         repository.findById(id),
-        () -> "user not found"
+        () -> new UserNotFound(id)
 );
 
 // Convert Optional values
-Result<User, String> userFromOptional = Result.fromOptional(
+Result<User, LoginError> userFromOptional = Result.fromOptional(
         repository.findOptionalById(id),
-        () -> "user not found"
+        () -> new UserNotFound(id)
 );
 ```
 
@@ -95,98 +95,100 @@ Result<User, String> userFromOptional = Result.fromOptional(
 
 ```java
 // map transforms the Ok value
-Result<Integer, String> doubled = Result.ok(21)
-        .map(value -> value * 2);
-// Ok(42)
+Result<String, LoginError> greeting = Result.ok(new User("u-123", "Ada"))
+        .map(user -> "Welcome back, " + user.displayName());
+// Ok("Welcome back, Ada")
 
 // Errors pass through unchanged
-Result<Integer, String> stillErr = Result.<Integer, String>err("bad input")
-        .map(value -> value * 2);
-// Err("bad input")
+Result<String, LoginError> stillErr = Result.<User, LoginError>err(new InvalidPassword())
+        .map(user -> "Welcome back, " + user.displayName());
+// Err(new InvalidPassword())
 
 // flatMap chains another Result-returning operation
-Result<Integer, String> result = Result.ok("42")
-        .flatMap(text -> Result.trying(() -> Integer.parseInt(text), Throwable::getMessage))
-        .flatMap(number -> number > 0
-                ? Result.ok(number)
-                : Result.err("number must be positive"));
+Result<Session, LoginError> result = findUser(username)
+        .flatMap(user -> verifyPassword(user, password))
+        .flatMap(user -> createSession(user));
 
 // map is for T -> U
 // flatMap is for T -> Result<U, E>
 
-// Practical validation pipeline
-Result<String, String> readPort() {
-    return Result.fromNullable(System.getenv("PORT"), () -> "PORT is missing");
+// Practical authentication pipeline
+Result<User, LoginError> findUser(String username) {
+    return Result.fromOptional(userRepository.findByUsername(username), () -> new UserNotFound(username));
 }
 
-Result<Integer, String> parsePort(String text) {
-    return Result.trying(() -> Integer.parseInt(text), Throwable::getMessage);
+Result<User, LoginError> verifyPassword(User user, String password) {
+    return passwordHasher.matches(password, user.passwordHash())
+            ? Result.ok(user)
+            : Result.err(new InvalidPassword());
 }
 
-Result<Integer, String> validatePort(int port) {
-    return port >= 1 && port <= 65535
-            ? Result.ok(port)
-            : Result.err("port must be between 1 and 65535");
+Result<Session, LoginError> createSession(User user) {
+    return user.locked()
+            ? Result.err(new AccountLocked(user.lockedForSeconds()))
+            : Result.ok(sessionService.createFor(user));
 }
 
-Result<Integer, String> port = readPort()
-        .flatMap(OutcomeExamples::parsePort)
-        .flatMap(OutcomeExamples::validatePort);
+Result<Session, LoginError> session = findUser(username)
+        .flatMap(user -> verifyPassword(user, password))
+        .flatMap(OutcomeExamples::createSession);
 ```
 
 ## Transforming and Recovering Errors
 
 ```java
 // mapError converts one error type into another
-Result<User, Throwable> fromTry = Result.trying(() -> service.loadUser(id));
-Result<User, String> readable = fromTry.mapError(Throwable::getMessage);
+Result<User, Throwable> fromTry = Result.trying(() -> userService.load(id));
+Result<User, UserQueryError> readable = fromTry.mapError(error -> new UserQueryFailed(id, error));
 
 // Useful at boundaries
-Result<User, DatabaseError> fromDb = loadUser(id);
-Result<User, ApiError> apiResult = fromDb.mapError(error ->
-        new ApiError("Could not load user", error)
+Result<User, UserQueryError> fromDb = loadUser(id);
+Result<User, GetUserResponseError> apiResult = fromDb.mapError(error ->
+        new GetUserResponseError("Could not load user", error)
 );
 
 // orElse recovers by returning another Result
-Result<User, String> user = loadUserFromCache(id)
+Result<User, UserQueryError> user = loadUserFromCache(id)
         .orElse(error -> loadUserFromDatabase(id));
 
 // Recover into success
-Result<String, String> config = Result.<String, String>err("config missing")
-        .orElse(error -> Result.ok("default-config"));
+Result<UserPreferences, UserQueryError> preferences = loadUserPreferences(userId)
+        .orElse(error -> Result.ok(UserPreferences.defaultFor(userId)));
 
 // Or change the error type while staying in Err
-Result<String, IllegalStateException> typedError = Result.<String, String>err("config missing")
-        .orElse(error -> Result.err(new IllegalStateException(error)));
+Result<User, IllegalStateException> typedError = loadUser(id)
+        .orElse(error -> Result.err(new IllegalStateException(error.toString())));
 ```
 
 ## Extracting Values
 
 ```java
 // Unwrap success or throw Panic
-int value = Result.ok(42).unwrap();
+User user = Result.ok(new User("u-123", "Ada")).unwrap();
 
 // Unwrap with a custom panic message
-User user = maybeUser.unwrap("expected authenticated user here");
+User currentUser = maybeUser.unwrap("expected authenticated user here");
 
 // Read the error value
-String error = Result.<Integer, String>err("boom").unwrapError();
+LoginError error = Result.<User, LoginError>err(new InvalidPassword()).unwrapError();
 
 // Fallback value
-int port = loadPort().unwrapOr(8080);
+UserPreferences preferences = loadUserPreferences(userId)
+        .unwrapOr(UserPreferences.defaultFor(userId));
 
 // Lazy fallback
-int legacyPort = loadPort().unwrapOrElse(() -> readPortFromLegacyConfig());
+UserPreferences lazyPreferences = loadUserPreferences(userId)
+        .unwrapOrElse(() -> UserPreferences.defaultFor(userId));
 
 // Derive fallback from the error
-int statusCode = parseStatus(raw).unwrapOrElse(errorValue -> switch (errorValue) {
-    case "missing" -> 400;
-    case "invalid" -> 422;
-    default -> 500;
+GetUserResponse response = loadUser(id).unwrapOrElse(errorValue -> switch (errorValue) {
+    case UserNotFound e -> GetUserResponse.notFound(e.username());
+    case InvalidPassword e -> GetUserResponse.unauthorized();
+    case AccountLocked e -> GetUserResponse.locked(e.remainingSeconds());
 });
 
 // Convert an error into an exception
-User loaded = loadUser(id).orThrow(errorValue -> new IllegalStateException(errorValue));
+User loaded = loadUser(id).orThrow(errorValue -> new IllegalStateException(errorValue.toString()));
 
 // Useful when your internals use Result but your framework boundary expects exceptions
 UserControllerResponse handle(String id) {
@@ -199,43 +201,47 @@ UserControllerResponse handle(String id) {
 
 ```java
 // peek runs only for Ok
-Result<Integer, String> parsed = parse(input)
-        .peek(value -> logger.info("parsed value: {}", value));
+Result<User, LoginError> authenticated = authenticate(username, password)
+        .peek(user -> logger.info("login ok for {}", user.displayName()));
 
 // peekErr runs only for Err
-Result<Integer, String> logged = parse(input)
-        .peekErr(error -> logger.warn("could not parse input: {}", error));
+Result<User, LoginError> logged = authenticate(username, password)
+        .peekErr(error -> logger.warn("login failed: {}", error));
 
 // tap runs for both Ok and Err
-Result<Integer, String> metered = parse(input)
-        .tap(() -> metrics.increment("parse.attempt"));
+Result<User, LoginError> metered = authenticate(username, password)
+        .tap(() -> metrics.increment("login.attempt"));
 
 // These methods return the original result unchanged
-Result<Integer, String> pipeline = parse(input)
-        .peek(value -> logger.info("value={}", value))
+Result<User, LoginError> pipeline = authenticate(username, password)
+        .peek(user -> logger.info("user={}", user.id()))
         .peekErr(error -> logger.warn("error={}", error))
-        .tap(() -> metrics.increment("parse.total"));
+        .tap(() -> metrics.increment("login.total"));
 ```
 
 ## Folding Results
 
 ```java
 // fold collapses both branches into one final value
-String message = loadUser(id).fold(
-        user -> "Hello, " + user.displayName(),
-        error -> "Could not load user: " + error
+String message = authenticate(username, password).fold(
+        user -> "Welcome, " + user.displayName(),
+        error -> "Login failed: " + error
 );
 
 // Great for HTTP-ish boundaries
-int status = saveUser(input).fold(
-        user -> 201,
-        error -> 400
+int status = authenticate(username, password).fold(
+        user -> 200,
+        error -> switch (error) {
+            case UserNotFound e -> 404;
+            case InvalidPassword e -> 401;
+            case AccountLocked e -> 423;
+        }
 );
 
 // Also useful for rendering or logging
-String line = parsePort(raw).fold(
-        port -> "Listening on " + port,
-        error -> "Startup failed: " + error
+String line = loadUser(id).fold(
+        user -> "Loaded user " + user.displayName(),
+        error -> "Could not load user: " + error
 );
 ```
 
@@ -324,33 +330,33 @@ try {
 
 ### Static factory methods
 
-| Method | Description |
-| --- | --- |
-| `Result.ok(value)` | Create an `Ok` |
-| `Result.err(error)` | Create an `Err` |
-| `Result.trying(supplier)` | Capture a thrown `Throwable` as `Err` |
-| `Result.trying(supplier, errorMapper)` | Capture an exception and map it to your error type |
-| `Result.fromNullable(value, onNullSupplier)` | Convert a nullable reference into `Result` |
-| `Result.fromOptional(optional, onEmptySupplier)` | Convert an `Optional` into `Result` |
+| Method                                           | Description                                        |
+|--------------------------------------------------|----------------------------------------------------|
+| `Result.ok(value)`                               | Create an `Ok`                                     |
+| `Result.err(error)`                              | Create an `Err`                                    |
+| `Result.trying(supplier)`                        | Capture a thrown `Throwable` as `Err`              |
+| `Result.trying(supplier, errorMapper)`           | Capture an exception and map it to your error type |
+| `Result.fromNullable(value, onNullSupplier)`     | Convert a nullable reference into `Result`         |
+| `Result.fromOptional(optional, onEmptySupplier)` | Convert an `Optional` into `Result`                |
 
 ### Instance methods
 
-| Method | Description |
-| --- | --- |
-| `isOk()` | `true` when this result is `Ok` |
-| `isErr()` | `true` when this result is `Err` |
-| `map(fn)` | Transform the success value |
-| `mapError(fn)` | Transform the error value |
-| `flatMap(fn)` | Chain a function that returns `Result` |
-| `orElse(fn)` | Recover from an error with another `Result` |
-| `peek(fn)` | Observe success values |
-| `peekErr(fn)` | Observe error values |
-| `tap(fn)` | Run a side effect for both branches |
-| `unwrap()` | Return the success value or throw `Panic` |
-| `unwrap(message)` | Return the success value or throw `Panic` with a custom message |
-| `unwrapError()` | Return the error value or throw `Panic` |
-| `unwrapOr(value)` | Return the success value or a fallback |
-| `unwrapOrElse(supplier)` | Lazily compute a fallback |
-| `unwrapOrElse(errorMapper)` | Compute a fallback from the error |
-| `orThrow(errorMapper)` | Throw an exception derived from the error |
-| `fold(okMapper, errorMapper)` | Collapse both branches into one value |
+| Method                        | Description                                                     |
+|-------------------------------|-----------------------------------------------------------------|
+| `isOk()`                      | `true` when this result is `Ok`                                 |
+| `isErr()`                     | `true` when this result is `Err`                                |
+| `map(fn)`                     | Transform the success value                                     |
+| `mapError(fn)`                | Transform the error value                                       |
+| `flatMap(fn)`                 | Chain a function that returns `Result`                          |
+| `orElse(fn)`                  | Recover from an error with another `Result`                     |
+| `peek(fn)`                    | Observe success values                                          |
+| `peekErr(fn)`                 | Observe error values                                            |
+| `tap(fn)`                     | Run a side effect for both branches                             |
+| `unwrap()`                    | Return the success value or throw `Panic`                       |
+| `unwrap(message)`             | Return the success value or throw `Panic` with a custom message |
+| `unwrapError()`               | Return the error value or throw `Panic`                         |
+| `unwrapOr(value)`             | Return the success value or a fallback                          |
+| `unwrapOrElse(supplier)`      | Lazily compute a fallback                                       |
+| `unwrapOrElse(errorMapper)`   | Compute a fallback from the error                               |
+| `orThrow(errorMapper)`        | Throw an exception derived from the error                       |
+| `fold(okMapper, errorMapper)` | Collapse both branches into one value                           |
