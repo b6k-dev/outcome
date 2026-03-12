@@ -222,6 +222,36 @@ class ResultTest {
 
             assertEquals(fallback, errResult().unwrapOrElse(() -> fallback));
         }
+
+        @Test
+        void returnsValueForOkWhenUsingErrorMapper() {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().unwrapOrElse(error -> {
+                called.set(true);
+                return error.length();
+            });
+
+            assertEquals(OK_VALUE, result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void mapsErrorForErrWhenUsingErrorMapper() {
+            var result = errResult().unwrapOrElse(String::length);
+
+            assertEquals(ERR_VALUE.length(), result);
+        }
+
+        @Test
+        void acceptsErrorMapperWithBroaderInputAndNarrowerOutput() {
+            Result<Number, String> result = Result.err(ERR_VALUE);
+            Function<Object, Long> mapper = value -> (long) value.toString().length();
+
+            Number unwrapped = result.unwrapOrElse(mapper);
+
+            assertEquals(ERR_VALUE.length(), unwrapped.longValue());
+        }
     }
 
     @Nested

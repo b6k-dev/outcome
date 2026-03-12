@@ -30,6 +30,7 @@ public sealed interface Result<T, E> {
     T unwrapOr(T defaultValue);
 
     T unwrapOrElse(Supplier<? extends T> supplier);
+    T unwrapOrElse(Function<? super E, ? extends T> errorMapper);
 
     <U> Result<U, E> flatMap(Function<? super T, ? extends Result<U, E>> mapper);
 
@@ -63,6 +64,11 @@ public sealed interface Result<T, E> {
 
         @Override
         public T unwrapOrElse(Supplier<? extends T> supplier) {
+            return value;
+        }
+
+        @Override
+        public T unwrapOrElse(Function<? super E, ? extends T> errorMapper) {
             return value;
         }
 
@@ -126,6 +132,11 @@ public sealed interface Result<T, E> {
         @Override
         public T unwrapOrElse(Supplier<? extends T> supplier) {
             return supplier.get();
+        }
+
+        @Override
+        public T unwrapOrElse(Function<? super E, ? extends T> errorMapper) {
+            return errorMapper.apply(this.error);
         }
 
         @Override
