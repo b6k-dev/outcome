@@ -223,6 +223,40 @@ class ResultTest {
     }
 
     @Nested
+    class OrThrow {
+        @Test
+        void returnsValueForOk() throws Exception {
+            var called = new AtomicBoolean(false);
+
+            var result = okResult().orThrow(error -> {
+                called.set(true);
+                return new Exception(error);
+            });
+
+            assertEquals(OK_VALUE, result);
+            assertFalse(called.get());
+        }
+
+        @Test
+        void throwsMappedExceptionForErr() {
+            assertThatThrownBy(() -> errResult().orThrow(IllegalStateException::new))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage(ERR_VALUE);
+        }
+
+        @Test
+        void acceptsMapperWithBroaderInputAndNarrowerOutput() {
+            Result<Integer, String> result = errResult();
+            Function<Object, IllegalArgumentException> mapper = value ->
+                    new IllegalArgumentException(value.toString().toUpperCase());
+
+            assertThatThrownBy(() -> result.orThrow(mapper))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(ERR_VALUE.toUpperCase());
+        }
+    }
+
+    @Nested
     class Map {
         @Test
         void transformsValueForOk() {
@@ -319,6 +353,56 @@ class ResultTest {
             Result<CharSequence, String> mapped = result.flatMap(mapper);
 
             assertEquals("45", mapped.unwrap().toString());
+        }
+    }
+
+    @Nested
+    class Fold {
+        @Test
+        void mapsOkWithOkMapper() {
+            var okCalled = new AtomicBoolean(false);
+            var errCalled = new AtomicBoolean(false);
+
+            var result = okResult().fold(value -> {
+                okCalled.set(true);
+                return value * 2;
+            }, error -> {
+                errCalled.set(true);
+                return error.length();
+            });
+
+            assertEquals(OK_VALUE * 2, result);
+            assertTrue(okCalled.get());
+            assertFalse(errCalled.get());
+        }
+
+        @Test
+        void mapsErrWithErrorMapper() {
+            var okCalled = new AtomicBoolean(false);
+            var errCalled = new AtomicBoolean(false);
+
+            var result = errResult().fold(value -> {
+                okCalled.set(true);
+                return value * 2;
+            }, error -> {
+                errCalled.set(true);
+                return error.length();
+            });
+
+            assertEquals(ERR_VALUE.length(), result);
+            assertTrue(errCalled.get());
+            assertFalse(okCalled.get());
+        }
+
+        @Test
+        void acceptsMappersWithBroaderInputAndNarrowerOutput() {
+            Result<Integer, String> result = okResult();
+            Function<Number, StringBuilder> okMapper = value -> new StringBuilder(value.toString());
+            Function<Object, CharSequence> errorMapper = value -> new StringBuilder(value.toString().toUpperCase());
+
+            CharSequence folded = result.fold(okMapper, errorMapper);
+
+            assertEquals("45", folded.toString());
         }
     }
 }

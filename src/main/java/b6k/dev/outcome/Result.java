@@ -34,6 +34,11 @@ public sealed interface Result<T, E> {
 
     <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback);
 
+    <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) throws X;
+
+    <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper);
+
+
     record Ok<T, E>(T value) implements Result<T, E> {
         @Override
         public T unwrap() {
@@ -78,6 +83,16 @@ public sealed interface Result<T, E> {
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
             return this.withErrorType();
+        }
+
+        @Override
+        public <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) {
+            return this.value;
+        }
+
+        @Override
+        public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
+            return okMapper.apply(this.value);
         }
 
         @SuppressWarnings("unchecked")
@@ -130,6 +145,16 @@ public sealed interface Result<T, E> {
         @Override
         public <E2> Result<T, E2> orElse(Function<? super E, ? extends Result<T, E2>> fallback) {
             return tryOrPanic(() -> fallback.apply(this.error), "fallback threw an exception");
+        }
+
+        @Override
+        public <X extends Throwable> T orThrow(Function<? super E, ? extends X> errorMapper) throws X {
+            throw errorMapper.apply(this.error);
+        }
+
+        @Override
+        public <R> R fold(Function<? super T, ? extends R> okMapper, Function<? super E, ? extends R> errorMapper) {
+            return errorMapper.apply(this.error);
         }
 
         @SuppressWarnings("unchecked")
