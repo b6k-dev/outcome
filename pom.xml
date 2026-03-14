@@ -6,7 +6,7 @@
 
     <groupId>io.github.b6k-dev</groupId>
     <artifactId>outcome</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>Outcome</name>
     <description>Lightweight Result type for Java with Ok, Err, and Panic</description>
     <url>https://github.com/b6k-dev/outcome</url>
