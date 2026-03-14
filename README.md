@@ -6,6 +6,9 @@ Inspired by [better-result](https://github.com/dmmulroy/better-result).
 
 ## Contents
 
+- [Installation](#installation)
+- [Java Compatibility](#java-compatibility)
+- [Quick Start](#quick-start)
 - [The Core Types](#the-core-types)
 - [Creating Results](#creating-results)
 - [Transforming Success Values](#transforming-success-values)
@@ -16,6 +19,65 @@ Inspired by [better-result](https://github.com/dmmulroy/better-result).
 - [Modeling Errors with Sealed Types](#modeling-errors-with-sealed-types)
 - [Panic](#panic)
 - [API Reference](#api-reference)
+
+## Installation
+
+Maven:
+
+```xml
+<dependency>
+    <groupId>io.github.b6k-dev</groupId>
+    <artifactId>outcome</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+Gradle (Groovy DSL):
+
+```groovy
+implementation 'io.github.b6k-dev:outcome:1.0.0'
+```
+
+Gradle (Kotlin DSL):
+
+```kotlin
+implementation("io.github.b6k-dev:outcome:1.0.0")
+```
+
+## Java Compatibility
+
+Outcome targets Java 17 and newer. The library API is compiled with `--release 17`, and examples in this README use sealed types, records, and pattern matching features available in modern Java.
+
+## Quick Start
+
+```java
+import b6k.dev.outcome.Result;
+
+sealed interface CreateUserError permits InvalidEmail, DuplicateEmail {}
+record InvalidEmail(String value) implements CreateUserError {}
+record DuplicateEmail(String value) implements CreateUserError {}
+record User(String id, String email) {}
+
+Result<User, CreateUserError> createUser(String email) {
+    if (email == null || email.isBlank() || !email.contains("@")) {
+        return Result.err(new InvalidEmail(String.valueOf(email)));
+    }
+    if (email.equals("ada@example.com")) {
+        return Result.err(new DuplicateEmail(email));
+    }
+    return Result.ok(new User("u-123", email));
+}
+
+String message = createUser("ada@example.com").fold(
+        user -> "Created user " + user.email(),
+        error -> switch (error) {
+            case InvalidEmail e -> "Invalid email: " + e.value();
+            case DuplicateEmail e -> "Email already exists: " + e.email();
+        }
+);
+```
+
+Use `Result.ok(...)` and `Result.err(...)` to model expected outcomes, then compose them with methods like `map`, `flatMap`, `orElse`, and `fold` instead of mixing nullable values, sentinel states, and exceptions.
 
 ## The Core Types
 
