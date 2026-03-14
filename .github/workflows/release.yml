@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag in MAJOR.MINOR.PATCH format
+        required: true
+        type: string
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+
+      - name: Set up Java and Maven Central credentials
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: central
+          server-username: ${{ secrets.SONATYPE_USERNAME }}
+          server-password: ${{ secrets.SONATYPE_PASSWORD }}
+          gpg-private-key: ${{ secrets.GPG_KEY_CONTENTS }}
+          gpg-passphrase: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Make Maven wrapper executable
+        run: chmod +x ./mvnw
+
+      - name: Derive release and next snapshot versions from tag
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            RELEASE_VERSION="${RELEASE_TAG_INPUT}"
+          else
+            RELEASE_VERSION="${GITHUB_REF_NAME}"
+          fi
+
+          if ! [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag '${RELEASE_VERSION}' is not in the expected MAJOR.MINOR.PATCH format." >&2
+            exit 1
+          fi
+
+          IFS='.' read -r major minor patch <<EOF
+          ${RELEASE_VERSION}
+          EOF
+
+          NEXT_PATCH=$((patch + 1))
+          NEXT_SNAPSHOT_VERSION="${major}.${minor}.${NEXT_PATCH}-SNAPSHOT"
+
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "${GITHUB_ENV}"
+          echo "NEXT_SNAPSHOT_VERSION=${NEXT_SNAPSHOT_VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Set release version from tag
+        run: ./mvnw -B versions:set -DnewVersion="${RELEASE_VERSION}" -DgenerateBackupPoms=false
+
+      - name: Build, sign, and publish release bundle
+        run: ./mvnw -B -Prelease deploy
+
+      - name: Check out default branch for next snapshot bump
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEFAULT_BRANCH }}
+          path: default-branch
+
+      - name: Bump default branch to next snapshot version
+        working-directory: /home/runner/work/outcome/outcome/default-branch
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B versions:set -DnewVersion="${NEXT_SNAPSHOT_VERSION}" -DgenerateBackupPoms=false
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          if git diff --cached --quiet; then
+            echo "${DEFAULT_BRANCH} is already at ${NEXT_SNAPSHOT_VERSION}; nothing to commit."
+            exit 0
+          fi
+          git commit -m "Bump version to ${NEXT_SNAPSHOT_VERSION}"
+          git push origin HEAD:"${DEFAULT_BRANCH}"
