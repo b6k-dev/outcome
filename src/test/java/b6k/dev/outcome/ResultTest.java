@@ -346,7 +346,7 @@ class ResultTest {
 
         @Test
         void panicsWhenErrorMapperThrows() {
-            assertThatThrownBy(() -> errResult().unwrapOrElse(_ -> {
+            assertThatThrownBy(() -> errResult().unwrapOrElse(error -> {
                 throw new IllegalStateException("boom");
             }))
                     .isInstanceOf(Panic.class)
@@ -363,7 +363,7 @@ class ResultTest {
         void preservesValueForOk() {
             var called = new AtomicBoolean(false);
 
-            var result = okResult().orElse(_ -> {
+            var result = okResult().orElse(error -> {
                 called.set(true);
                 return Result.ok(23);
             });
@@ -389,7 +389,7 @@ class ResultTest {
 
         @Test
         void transformsErrToDifferentErrorType() {
-            Result<Integer, IllegalStateException> result = errResult().orElse(_ -> Result.err(new IllegalStateException("new error")));
+            Result<Integer, IllegalStateException> result = errResult().orElse(error -> Result.err(new IllegalStateException("new error")));
 
             assertThat(result.unwrapError())
                     .isInstanceOf(IllegalStateException.class)
@@ -419,7 +419,7 @@ class ResultTest {
 
         @Test
         void rejectsNullFallbackResult() {
-            assertThatThrownBy(() -> errResult().orElse(_ -> null))
+            assertThatThrownBy(() -> errResult().orElse(error -> null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("fallback result must not be null");
         }
@@ -470,7 +470,7 @@ class ResultTest {
 
         @Test
         void panicsWhenMapperThrows() {
-            assertThatThrownBy(() -> errResult().orThrow(_ -> {
+            assertThatThrownBy(() -> errResult().orThrow(error -> {
                 throw new IllegalStateException("boom");
             }))
                     .isInstanceOf(Panic.class)
@@ -482,7 +482,7 @@ class ResultTest {
 
         @Test
         void rejectsNullMappedThrowable() {
-            assertThatThrownBy(() -> errResult().orThrow(_ -> null))
+            assertThatThrownBy(() -> errResult().orThrow(error -> null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("errorMapper result must not be null");
         }
@@ -526,7 +526,7 @@ class ResultTest {
 
         @Test
         void rejectsNullMappedValue() {
-            assertThatThrownBy(() -> okResult().map(_ -> null))
+            assertThatThrownBy(() -> okResult().map(value -> null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("value must not be null");
         }
@@ -570,7 +570,7 @@ class ResultTest {
 
         @Test
         void rejectsNullMappedError() {
-            assertThatThrownBy(() -> errResult().mapError(_ -> null))
+            assertThatThrownBy(() -> errResult().mapError(error -> null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("error must not be null");
         }
@@ -595,7 +595,7 @@ class ResultTest {
 
         @Test
         void propagatesErrorFromMapper() {
-            var result = okResult().flatMap(_ -> Result.err("mapper failed"));
+            var result = okResult().flatMap(value -> Result.err("mapper failed"));
 
             assertTrue(result.isErr());
             assertEquals("mapper failed", result.unwrapError());
@@ -633,7 +633,7 @@ class ResultTest {
 
         @Test
         void rejectsNullMappedResult() {
-            assertThatThrownBy(() -> okResult().flatMap(_ -> null))
+            assertThatThrownBy(() -> okResult().flatMap(value -> null))
                     .isInstanceOf(NullPointerException.class)
                     .hasMessage("mapper result must not be null");
         }
@@ -658,7 +658,7 @@ class ResultTest {
         void preservesErrorForErrWithoutCallingObserver() {
             var called = new AtomicBoolean(false);
 
-            var result = errResult().peek(_ -> called.set(true));
+            var result = errResult().peek(value -> called.set(true));
 
             assertEquals(errResult(), result);
             assertFalse(called.get());
@@ -676,7 +676,7 @@ class ResultTest {
 
         @Test
         void panicsWhenObserverThrows() {
-            assertThatThrownBy(() -> okResult().peek(_ -> {
+            assertThatThrownBy(() -> okResult().peek(value -> {
                 throw new IllegalStateException("boom");
             }))
                     .isInstanceOf(Panic.class)
@@ -706,7 +706,7 @@ class ResultTest {
         void preservesValueForOkWithoutCallingObserver() {
             var called = new AtomicBoolean(false);
 
-            var result = okResult().peekErr(_ -> called.set(true));
+            var result = okResult().peekErr(error -> called.set(true));
 
             assertEquals(okResult(), result);
             assertFalse(called.get());
@@ -724,7 +724,7 @@ class ResultTest {
 
         @Test
         void panicsWhenObserverThrows() {
-            assertThatThrownBy(() -> errResult().peekErr(_ -> {
+            assertThatThrownBy(() -> errResult().peekErr(error -> {
                 throw new IllegalStateException("boom");
             }))
                     .isInstanceOf(Panic.class)
@@ -841,7 +841,7 @@ class ResultTest {
 
         @Test
         void panicsWhenOkMapperThrows() {
-            assertThatThrownBy(() -> okResult().fold(_ -> {
+            assertThatThrownBy(() -> okResult().fold(value -> {
                 throw new IllegalStateException("boom");
             }, String::length))
                     .isInstanceOf(Panic.class)
@@ -853,7 +853,7 @@ class ResultTest {
 
         @Test
         void panicsWhenErrorMapperThrows() {
-            assertThatThrownBy(() -> errResult().fold(value -> value * 2, _ -> {
+            assertThatThrownBy(() -> errResult().fold(value -> value * 2, error -> {
                 throw new IllegalStateException("boom");
             }))
                     .isInstanceOf(Panic.class)
