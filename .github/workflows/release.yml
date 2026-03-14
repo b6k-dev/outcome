@@ -33,10 +33,10 @@ jobs:
           java-version: '17'
           cache: maven
           server-id: central
-          server-username: ${{ secrets.SONATYPE_USERNAME }}
-          server-password: ${{ secrets.SONATYPE_PASSWORD }}
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_KEY_CONTENTS }}
-          gpg-passphrase: ${{ secrets.SIGNING_PASSWORD }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Make Maven wrapper executable
         run: chmod +x ./mvnw
@@ -101,6 +101,10 @@ jobs:
         run: git checkout --detach "${RELEASE_VERSION}"
 
       - name: Build, sign, and publish release bundle
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.SIGNING_PASSWORD }}
         run: ./mvnw -B -Prelease deploy
 
       - name: Create draft GitHub Release
